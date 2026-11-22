@@ -374,22 +374,63 @@ static void CWSetApplicationIconImage(id self, SEL _cmd, NSImage *image)
 }
 
 static IMP gOriginalSetActivationPolicy;
+static IMP gOriginalActivationPolicy;
+
+/// Every Wine process that owns a window launches from the app's bundle, so
+/// without this the Dock shows several copies of the app: the game, Wine's
+/// explorer desktop and the BepInEx console. Those helper processes are
+/// accessory apps (windows, but no Dock tile or menu bar). The actual game
+/// stays a normal app.
+static BOOL CWHideFromDock(void)
+{
+    static BOOL hidden;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSString *exe = CWProcessExeName();
+        hidden = CWIsShellHelper()
+            || [exe isEqualToString:@"services.exe"] || [exe isEqualToString:@"svchost.exe"]
+            || [exe isEqualToString:@"winedevice.exe"] || [exe isEqualToString:@"plugplay.exe"]
+            || [exe isEqualToString:@"rpcss.exe"] || [exe isEqualToString:@"wineboot.exe"]
+            || [exe isEqualToString:@"winemenubuilder.exe"];
+    });
+    return hidden;
+}
 
 /// The Dock reads an app's name when it turns into a regular (Dock-visible)
 /// app, so the display name must be in place before winemac.drv flips the
 /// activation policy.
 static BOOL CWSetActivationPolicy(id self, SEL _cmd, NSApplicationActivationPolicy policy)
 {
-    if (policy == NSApplicationActivationPolicyRegular) CWApplyDisplayName();
+    if (CWHideFromDock()) policy = NSApplicationActivationPolicyAccessory;
+    else if (policy == NSApplicationActivationPolicyRegular) CWApplyDisplayName();
     return ((BOOL (*)(id, SEL, NSApplicationActivationPolicy))gOriginalSetActivationPolicy)(self, _cmd, policy);
+}
+
+/// winemac.drv transforms a process to foreground only when its activation
+/// policy is not regular; it would keep doing that for accessory helpers and
+/// create a Dock tile again. Report regular for them after hiding the tile.
+static NSApplicationActivationPolicy CWActivationPolicy(id self, SEL _cmd)
+{
+    if (CWHideFromDock()) return NSApplicationActivationPolicyRegular;
+    return ((NSApplicationActivationPolicy (*)(id, SEL))gOriginalActivationPolicy)(self, _cmd);
 }
 
 static void CWInstallIconHook(void)
 {
     Method icon = class_getInstanceMethod([NSApplication class], @selector(setApplicationIconImage:));
     if (icon) gOriginalSetIcon = method_setImplementation(icon, (IMP)CWSetApplicationIconImage);
-    Method policy = class_getInstanceMethod([NSApplication class], @selector(setActivationPolicy:));
-    if (policy) gOriginalSetActivationPolicy = method_setImplementation(policy, (IMP)CWSetActivationPolicy);
+    Method setPolicy = class_getInstanceMethod([NSApplication class], @selector(setActivationPolicy:));
+    if (setPolicy) gOriginalSetActivationPolicy = method_setImplementation(setPolicy, (IMP)CWSetActivationPolicy);
+    Method getPolicy = class_getInstanceMethod([NSApplication class], @selector(activationPolicy));
+    if (getPolicy) gOriginalActivationPolicy = method_setImplementation(getPolicy, (IMP)CWActivationPolicy);
+
+    if (CWHideFromDock()) {
+        // Do it now as well: by the time Cocoa is up, the process may already
+        // have checked in with LaunchServices and have a Dock tile.
+        ((BOOL (*)(id, SEL, NSApplicationActivationPolicy))gOriginalSetActivationPolicy)(
+            NSApp, @selector(setActivationPolicy:), NSApplicationActivationPolicyAccessory);
+        CWLog(@"hidden helper '%@' from Dock", CWProcessExeName());
+    }
 }
 
 #pragma mark - Own Space for games
