@@ -19,16 +19,36 @@
 import Foundation
 
 extension FileManager {
+    /// Copy every DLL in `sourceDirectory` into `destinationDirectory`.
+    /// DLLs whose names also exist in `skippingNamesIn` are left alone, and
+    /// files already identical to the source are not rewritten (this runs on
+    /// every launch).
     func replaceDLLs(
-        in destinationDirectory: URL, withContentsIn sourceDirectory: URL, makeOriginalCopy: Bool = false
+        in destinationDirectory: URL, withContentsIn sourceDirectory: URL, makeOriginalCopy: Bool = false,
+        skippingNamesIn skipDirectory: URL? = nil
     ) throws {
         let enumerator = FileManager.default.enumerator(
             at: sourceDirectory, includingPropertiesForKeys: [.isRegularFileKey])
 
         while let fileURL = enumerator?.nextObject() as? URL {
-            guard fileURL.pathExtension == "dll" else { return }
+            // `continue`, not `return`: a stray non-DLL (.DS_Store, a
+            // license file) used to abort the copy of every DLL after it.
+            guard fileURL.pathExtension.lowercased() == "dll" else { continue }
+            if let skipDirectory {
+                let enginePath = skipDirectory.appending(path: fileURL.lastPathComponent).path(percentEncoded: false)
+                if fileExists(atPath: enginePath) { continue }
+            }
             let originalURL = destinationDirectory.appending(path: fileURL.lastPathComponent)
-            try FileManager.default.replaceFile(at: originalURL, with: fileURL, makeOriginalCopy: makeOriginalCopy)
+            if contentsEqual(atPath: originalURL.path(percentEncoded: false),
+                             andPath: fileURL.path(percentEncoded: false)) {
+                continue
+            }
+            if fileExists(atPath: originalURL.path(percentEncoded: false)) {
+                try replaceFile(at: originalURL, with: fileURL, makeOriginalCopy: makeOriginalCopy)
+            } else if fileExists(atPath: destinationDirectory.path(percentEncoded: false)) {
+                // A prefix may lack the builtin placeholder; install anyway.
+                try copyItem(at: fileURL, to: originalURL)
+            }
         }
     }
 

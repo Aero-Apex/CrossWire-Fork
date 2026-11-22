@@ -36,6 +36,10 @@ struct EntryDetailAdvancedSection: View {
     var onLaunchDiagnostics: () -> Void
 
     @State private var isExpanded: Bool = false
+
+    private static let gameSpaceHint = "Opens full screen in a new Space next to your desktop. "
+        + "Swipe left or right with three fingers (or press Control-arrow keys) to switch "
+        + "between it and your desktop."
     @State private var primarySelection: URL?
 
     var body: some View {
@@ -79,6 +83,25 @@ struct EntryDetailAdvancedSection: View {
                 .font(CrosswireTheme.Typography.body)
                 .foregroundStyle(CrosswireTheme.textPrimary)
             Text("config.graphicsMode.hint")
+                .font(CrosswireTheme.Typography.entryMeta)
+                .foregroundStyle(CrosswireTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text("Open in its own Space")
+                    .font(CrosswireTheme.Typography.body)
+                    .foregroundStyle(CrosswireTheme.textPrimary)
+                Spacer()
+                Picker("Open in its own Space", selection: $bottle.settings.gameSpace) {
+                    Text("Games only").tag(GameSpaceMode.automatic)
+                    Text("Always").tag(GameSpaceMode.always)
+                    Text("Never").tag(GameSpaceMode.never)
+                }
+                .labelsHidden()
+                .frame(maxWidth: 160)
+            }
+            Text(Self.gameSpaceHint)
                 .font(CrosswireTheme.Typography.entryMeta)
                 .foregroundStyle(CrosswireTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)

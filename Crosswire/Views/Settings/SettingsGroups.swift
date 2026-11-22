@@ -28,6 +28,11 @@ import AppKit
 struct SettingsGeneralGroup: View {
     @AppStorage("killOnTerminate") var killOnTerminate = true
     @AppStorage("defaultBottleLocation") var defaultBottleLocation = BottleData.defaultBottleDir
+    @AppStorage(ShellIntegration.enabledDefaultsKey) private var shellIntegration = true
+
+    private static let shellIntegrationHint = "Rounded Dock icons, a proper icon for console windows, "
+        + "app names in Command-Tab, and games in their own full-screen Space. "
+        + "Applies the next time an app starts."
 
     @AppStorage(AppearancePreference.defaultsKey) private var appearance = AppearancePreference.fallback.rawValue
 
@@ -41,6 +46,13 @@ struct SettingsGeneralGroup: View {
                 }
                 .pickerStyle(.segmented)
                 Toggle("Quit running apps when Crosswire quits", isOn: $killOnTerminate)
+            }
+            Section {
+                Toggle("Make Windows apps look like Mac apps", isOn: $shellIntegration)
+                Text(Self.shellIntegrationHint)
+                    .font(CrosswireTheme.Typography.entryMeta)
+                    .foregroundStyle(CrosswireTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Section("App Data") {
                 LabeledContent("Location", value: defaultBottleLocation.path(percentEncoded: false))

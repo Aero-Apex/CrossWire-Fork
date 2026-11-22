@@ -1,5 +1,7 @@
 # Crosswire — corresponding source
 
+> **This is CrossWire Fork v1.** See [FORK_README.md](FORK_README.md) for the changes.
+
 This repository is the **corresponding source** for Crosswire, a macOS app for
 running Windows software, published by Casita Software. It is provided to meet
 GPL-3.0 / LGPL-2.1 source-availability obligations for the binaries

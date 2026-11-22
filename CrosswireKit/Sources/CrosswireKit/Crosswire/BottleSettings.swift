@@ -64,6 +64,8 @@ public struct BottleInfo: Codable, Equatable {
     // Windows user name chosen at creation. Nil on older bottles, which keep
     // the Mac name: switching an existing prefix splits the profile.
     var windowsUserName: String?
+    // Full screen in its own Space; .automatic detects games from the exe.
+    var gameSpace: GameSpaceMode = .automatic
 
     public init() {}
 
@@ -78,6 +80,7 @@ public struct BottleInfo: Codable, Equatable {
         self.allowMultipleInstances = try container.decodeIfPresent(Bool.self, forKey: .allowMultipleInstances) ?? false
         self.lastLaunched = try container.decodeIfPresent(Date.self, forKey: .lastLaunched)
         self.windowsUserName = try container.decodeIfPresent(String.self, forKey: .windowsUserName)
+        self.gameSpace = try container.decodeIfPresent(GameSpaceMode.self, forKey: .gameSpace) ?? .automatic
     }
 }
 
@@ -266,6 +269,12 @@ public struct BottleSettings: Codable, Equatable {
     public var allowMultipleInstances: Bool {
         get { return info.allowMultipleInstances }
         set { info.allowMultipleInstances = newValue }
+    }
+
+    /// Whether launches open full screen in their own Space.
+    public var gameSpace: GameSpaceMode {
+        get { return info.gameSpace }
+        set { info.gameSpace = newValue }
     }
 
     /// When this app was last launched, surfaced as the library row's "Last

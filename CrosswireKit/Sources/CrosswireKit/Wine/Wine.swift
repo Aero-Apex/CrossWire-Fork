@@ -55,11 +55,14 @@ public class Wine {
         name: String? = nil, args: [String], environment: [String: String], executableURL: URL, directory: URL? = nil,
         fileHandle: FileHandle?, observation: WineRunObservation? = nil
     ) throws -> AsyncStream<ProcessOutput> {
+        let target = ShellIntegration.spawnTarget(
+            executableURL: executableURL, environment: environment, wrapperURL: wineBinary
+        )
         let process = Process()
-        process.executableURL = executableURL
+        process.executableURL = target.executableURL
         process.arguments = args
         process.currentDirectoryURL = directory ?? executableURL.deletingLastPathComponent()
-        process.environment = environment
+        process.environment = target.environment
         process.qualityOfService = .userInitiated
 
         observation?.process = process
@@ -174,6 +177,9 @@ public class Wine {
                 finalArgs = settings.arguments.split { $0.isWhitespace }.map(String.init)
             }
         }
+        for (key, value) in ShellIntegration.environment(for: url, bottle: bottle) where finalEnv[key] == nil {
+            finalEnv[key] = value
+        }
 
         if bottle.settings.dxvk {
             try enableDXVK(bottle: bottle)
@@ -234,6 +240,11 @@ public class Wine {
             if settings.locale != .auto, finalEnv["LC_ALL"] == nil {
                 finalEnv["LC_ALL"] = settings.locale.rawValue
             }
+        }
+        // Installers get Mac-style Dock icons too, but never a full-screen Space.
+        let shellEnv = ShellIntegration.environment(for: url, bottle: bottle, isInstaller: true)
+        for (key, value) in shellEnv where finalEnv[key] == nil {
+            finalEnv[key] = value
         }
         if bottle.settings.dxvk {
             try enableDXVK(bottle: bottle)
@@ -658,21 +669,38 @@ public class Wine {
     }
 
     public static func enableDXVK(bottle: Bottle) throws {
-        // No-op when the installed engine doesn't ship DXVK (the prod engine
-        // currently doesn't — only the beta channel does). Without this guard,
-        // a bottle with DXVK on would fail to launch on a non-DXVK engine
-        // because the source folders don't exist.
-        guard FileManager.default.fileExists(atPath: Wine.dxvkFolder.path(percentEncoded: false)) else {
-            return
+        // Engine DLLs are copied only when the installed engine ships DXVK
+        // (the prod engine currently doesn't — only the beta channel does).
+        // Without this check a bottle with DXVK on would fail to launch on a
+        // non-DXVK engine because the source folders don't exist. The app's
+        // own Direct3D 10/11 pack is installed either way.
+        if FileManager.default.fileExists(atPath: Wine.dxvkFolder.path(percentEncoded: false)) {
+            try FileManager.default.replaceDLLs(
+                in: bottle.url.appending(path: "drive_c").appending(path: "windows").appending(path: "system32"),
+                withContentsIn: Wine.dxvkFolder.appending(path: "x64")
+            )
+            try FileManager.default.replaceDLLs(
+                in: bottle.url.appending(path: "drive_c").appending(path: "windows").appending(path: "syswow64"),
+                withContentsIn: Wine.dxvkFolder.appending(path: "x32")
+            )
         }
-        try FileManager.default.replaceDLLs(
-            in: bottle.url.appending(path: "drive_c").appending(path: "windows").appending(path: "system32"),
-            withContentsIn: Wine.dxvkFolder.appending(path: "x64")
-        )
-        try FileManager.default.replaceDLLs(
-            in: bottle.url.appending(path: "drive_c").appending(path: "windows").appending(path: "syswow64"),
-            withContentsIn: Wine.dxvkFolder.appending(path: "x32")
-        )
+        try installGraphicsPack(bottle: bottle)
+    }
+
+    /// Install the Direct3D 10/11 DLLs the engine's DXVK lacks (see
+    /// `GraphicsPack`). Only DLLs the engine does not provide are installed,
+    /// so a future engine that ships its own d3d11 takes precedence.
+    private static func installGraphicsPack(bottle: Bottle) throws {
+        guard let pack = GraphicsPack.folder else { return }
+        let windows = bottle.url.appending(path: "drive_c").appending(path: "windows")
+        // Pack/engine architecture folder -> Windows system folder.
+        for (arch, systemFolder) in [("x64", "system32"), ("x32", "syswow64")] {
+            try FileManager.default.replaceDLLs(
+                in: windows.appending(path: systemFolder),
+                withContentsIn: pack.appending(path: arch),
+                skippingNamesIn: Wine.dxvkFolder.appending(path: arch)
+            )
+        }
     }
 
     /// Construct an environment merging the bottle values with the given values.
@@ -687,7 +715,16 @@ public class Wine {
             "GST_DEBUG": "1"
         ]
         bottle.settings.environmentVariables(wineEnv: &result)
+        let bottleOverrides = result["WINEDLLOVERRIDES"]
         result.merge(environment, uniquingKeysWith: { $1 })
+        // Per-DLL merge: a caller/per-program override list (e.g. BepInEx's
+        // winhttp) must not wipe the bottle's DXVK overrides.
+        if let bottleOverrides, let extra = environment["WINEDLLOVERRIDES"] {
+            result["WINEDLLOVERRIDES"] = DllOverrides.merge(bottleOverrides, extra)
+        }
+        if bottle.settings.dxvk, environment["VK_ICD_FILENAMES"] == nil, let icd = GraphicsPack.moltenVKICD {
+            result["VK_ICD_FILENAMES"] = icd.path(percentEncoded: false)
+        }
         result.merge(bottle.settings.windowsUserEnvironment, uniquingKeysWith: { $1 })
         return result
     }
