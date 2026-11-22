@@ -76,6 +76,7 @@ private struct LibraryInspector: View {
     @State private var optionsExpanded = false
     @State private var programsExpanded = false
     @State private var troubleshootingExpanded = false
+    @StateObject private var runningApps = RunningApps.shared
 
     private var status: AppStatus { bottle.appStatus() }
     private var bound: BoundBottleActions { actions.bound(to: bottle) }
@@ -96,6 +97,7 @@ private struct LibraryInspector: View {
         .safeAreaInset(edge: .bottom) { footer }
         .id(bottle.id)
         .onAppear {
+            runningApps.watch(bottle.url)
             if bottle.isAvailable, bottle.programs.isEmpty {
                 bottle.updateInstalledPrograms()
             }
@@ -143,19 +145,28 @@ private struct LibraryInspector: View {
     @ViewBuilder
     private var primaryAction: some View {
         let programs = bottle.userVisiblePrograms
+        let isRunning = runningApps.isRunning(bottle)
         HStack(spacing: 0) {
             Button {
-                bound.run()
+                if isRunning { runningApps.stop(bottle) } else { bound.run() }
             } label: {
-                Text(status.actions.first?.title ?? String(localized: "action.open"))
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 32)
+                if isRunning {
+                    Label("Stop", systemImage: "stop.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 32)
+                } else {
+                    Text(status.actions.first?.title ?? String(localized: "action.open"))
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 32)
+                }
             }
             .buttonStyle(.plain)
-            .disabled(!status.canOpen || !bottle.canLaunch)
+            .disabled(!isRunning && (!status.canOpen || !bottle.canLaunch))
+            .accessibilityLabel(isRunning ? "Stop \(bottle.displayName)" : "Open \(bottle.displayName)")
 
-            if programs.count > 1 {
+            if programs.count > 1 && !isRunning {
                 Rectangle()
                     .fill(Color.white.opacity(0.32))
                     .frame(width: 1, height: 18)
@@ -175,9 +186,10 @@ private struct LibraryInspector: View {
         .foregroundStyle(CrosswireTheme.textOnAccent)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(status.canOpen && bottle.canLaunch
-                      ? CrosswireTheme.accent
-                      : CrosswireTheme.accent.opacity(CrosswireTheme.disabledOpacity))
+                .fill(isRunning ? Color.red
+                     : (status.canOpen && bottle.canLaunch
+                        ? CrosswireTheme.accent
+                        : CrosswireTheme.accent.opacity(CrosswireTheme.disabledOpacity)))
         )
     }
 

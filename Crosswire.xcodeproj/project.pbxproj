@@ -64,6 +64,7 @@
 		6EFDF6562AAE2DA800EF622F /* CrosswireThumbnail.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6EFDF64A2AAE2DA800EF622F /* CrosswireThumbnail.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		6EFDF6662AAE303300EF622F /* Icons.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6EFDF6652AAE303300EF622F /* Icons.xcassets */; };
 		6F93D87A735B8AE4C19470FD /* CommonRuntimesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A050DC9787835284BB2BEB /* CommonRuntimesView.swift */; };
+		AA00000000000000000000A1 /* RunningApps.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000A2 /* RunningApps.swift */; };
 		7B62BEB7665E12DD579B9F28 /* JavaAppDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED3F1691D908D479B3A905B /* JavaAppDetector.swift */; };
 		873A035A47949642D3AAB139 /* TileArtView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4CE041E185C843A02B7A1B0 /* TileArtView.swift */; };
 		D8C84409EAB71E4DDF449B74 /* BannerArt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B31FAC23C6D4A3E4B8384F8 /* BannerArt.swift */; };
@@ -219,6 +220,7 @@
 		D3843D443675B0F009036361 /* LibraryTable.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LibraryTable.swift"; sourceTree = "<group>"; };
 		CCDB38B94618F3DE070F13E7 /* AppRoute.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppRoute.swift; sourceTree = "<group>"; };
 		CE596AE80A140D4AE56F911C /* LibrarySearchField.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LibrarySearchField.swift; sourceTree = "<group>"; };
+		AA00000000000000000000A2 /* RunningApps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunningApps.swift; sourceTree = "<group>"; };
 		CED3F1691D908D479B3A905B /* JavaAppDetector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JavaAppDetector.swift; sourceTree = "<group>"; };
 		D097907B6BECAB690D4ED478 /* LibraryDetailPane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LibraryDetailPane.swift; sourceTree = "<group>"; };
 		D15E81B81388F5818CF6A5E8 /* DetectedRuntimesSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DetectedRuntimesSheet.swift; sourceTree = "<group>"; };
@@ -435,6 +437,7 @@
 				A90E69279487E2EC21976BBA /* FailureWatcher.swift */,
 				A1A47AEC3C6282D015BB8500 /* FailureReportBuilder.swift */,
 				77F0588ED6FEB4510C02034F /* RuntimesPrompt.swift */,
+				AA00000000000000000000A2 /* RunningApps.swift */,
 				CED3F1691D908D479B3A905B /* JavaAppDetector.swift */,
 			);
 			path = Utils;
@@ -752,6 +755,7 @@
 				41E4481FA77D4D93E01A6EC6 /* FailureReportBuilder.swift in Sources */,
 				97C0E3509F0F36CBF7B8190C /* RuntimesPrompt.swift in Sources */,
 				0F85596667324331537E8D81 /* DetectedRuntimesSheet.swift in Sources */,
+				AA00000000000000000000A1 /* RunningApps.swift in Sources */,
 				7B62BEB7665E12DD579B9F28 /* JavaAppDetector.swift in Sources */,
 				BFD1B92A22E31C8F79451104 /* CrosswireTheme.swift in Sources */,
 				FEEE7329ECC0B7DC86638FB4 /* AppRoute.swift in Sources */,

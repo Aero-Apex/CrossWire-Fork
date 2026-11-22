@@ -471,20 +471,7 @@ public class Wine {
     /// `wine start /unix` detaches and returns immediately. Returns an empty
     /// array when nothing is running in the bottle.
     public static func runningProcessIDs(for bottle: Bottle) -> [pid_t] {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/ps")
-        process.arguments = ["-Aww", "-E", "-o", "pid=,command="]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-        } catch {
-            return []
-        }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard let output = String(data: data, encoding: .utf8) else { return [] }
+        guard let output = processEnvironmentOutput() else { return [] }
 
         let needle = "WINEPREFIX=\(bottle.url.path)"
         var pids: [pid_t] = []
@@ -495,6 +482,37 @@ public class Wine {
             }
         }
         return pids
+    }
+
+    /// Which of `candidates` have any process running inside their prefix.
+    /// One `ps` call for all bottles (the library can show several at once).
+    public static func runningBottleURLs(among candidates: [URL]) -> Set<URL> {
+        guard let output = processEnvironmentOutput() else { return [] }
+        var result: Set<URL> = []
+        for url in candidates {
+            let prefix = url.standardizedFileURL
+            if output.contains("WINEPREFIX=\(prefix.path(percentEncoded: false))") {
+                result.insert(prefix)
+            }
+        }
+        return result
+    }
+
+    private static func processEnvironmentOutput() -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-Aww", "-E", "-o", "pid=,command="]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+        } catch {
+            return nil
+        }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return String(data: data, encoding: .utf8)
     }
 
     /// Best-effort: is any process whose command line mentions `needle`

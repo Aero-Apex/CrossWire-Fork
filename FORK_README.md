@@ -22,6 +22,9 @@ makes Windows apps behave like Mac apps under Crosswire:
   D3D10/11 DLLs and MoltenVK 1.4.2, installed for any app with graphics mode
   on. Per-program overrides (for example BepInEx's `winhttp`) are now merged
   per DLL instead of replacing the graphics overrides.
+- **Red Stop button** — while an app is running (including a launcher whose
+  process exited but left children behind), the Play button turns into a red
+  Stop button that shuts down that app's bottle.
 - **Settings** — one switch in Settings ▸ General turns all of this off.
 
 ## Files added by the fork

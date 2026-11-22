@@ -42,6 +42,7 @@ struct BottleDetailContent: View {
 
     @State private var isRenaming = false
     @State private var showRuntimesSheet = false
+    @StateObject private var runningApps = RunningApps.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -59,6 +60,7 @@ struct BottleDetailContent: View {
         }
         .id(bottle.id)
         .onAppear {
+            runningApps.watch(bottle.url)
             if bottle.isAvailable, bottle.programs.isEmpty {
                 bottle.updateInstalledPrograms()
             }
@@ -95,15 +97,27 @@ struct BottleDetailContent: View {
 
     @ViewBuilder
     private var launchControls: some View {
-        Button(action: actions.run) {
-            Label("Play", systemImage: "play.fill")
-                .font(.headline)
-                .frame(minWidth: 140)
+        if runningApps.isRunning(bottle) {
+            Button { runningApps.stop(bottle) } label: {
+                Label("Stop", systemImage: "stop.fill")
+                    .font(.headline)
+                    .frame(minWidth: 140)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .controlSize(.large)
+            .accessibilityLabel("Stop \(bottle.displayName)")
+        } else {
+            Button(action: actions.run) {
+                Label("Play", systemImage: "play.fill")
+                    .font(.headline)
+                    .frame(minWidth: 140)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(!bottle.canLaunch)
+            .accessibilityLabel("Launch \(bottle.displayName)")
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .disabled(!bottle.canLaunch)
-        .accessibilityLabel("Launch \(bottle.displayName)")
         if bottle.userVisiblePrograms.count > 1 {
             Menu("Other Programs") {
                 ForEach(bottle.userVisiblePrograms) { program in
