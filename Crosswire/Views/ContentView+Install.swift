@@ -18,6 +18,7 @@
 
 import SwiftUI
 import AppKit
+import CoreGraphics
 import UniformTypeIdentifiers
 import CrosswireKit
 import os.log
@@ -833,6 +834,22 @@ extension ContentView {
         }
     }
 
+    /// Whether `app` owns a real window (on any Space). Wine helper processes
+    /// can have 1x1 or 500x500 placeholder windows; those don't count as a
+    /// running app the user could switch to.
+    private static func hasUsableWindow(for app: NSRunningApplication) -> Bool {
+        guard let windows = CGWindowListCopyWindowInfo(
+            [.optionAll, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] else { return false }
+        return windows.contains { info in
+            guard (info[kCGWindowOwnerPID as String] as? Int32) == app.processIdentifier,
+                  let bounds = info[kCGWindowBounds as String] as? [String: Any],
+                  let width = bounds["Width"] as? CGFloat,
+                  let height = bounds["Height"] as? CGFloat else { return false }
+            return width >= 400 && height >= 300
+        }
+    }
+
     func run(program: Program, bottle: Bottle, excludingPIDs: Set<pid_t> = []) {
         bottle.settings.lastLaunched = Date()
         // Re-entrancy debounce: a second Launch of the same bottle within a few
@@ -849,28 +866,41 @@ extension ContentView {
         }
         // Single-instance: unless this bottle opts into multiple instances, a
         // Launch on an app that's already running focuses the existing window
-        // instead of spawning a duplicate. We only suppress the spawn when we
-        // find a live, focusable window — otherwise we fall through and launch,
-        // so the guard can never get stuck blocking legitimate launches.
+        // instead of spawning a duplicate. Only a process that actually owns
+        // a usable window counts — a launch that hung during startup leaves
+        // Wine processes with no window, and focusing those makes Play look
+        // dead. Older windowless processes are cleared before this launch.
         //
         // excludingPIDs: PIDs the caller knows are already dead but may still
         // appear in ps -E during the kernel reaping window. Supplied by
         // provisionAndInstall (captured before killBottleBounded); empty for
         // all normal launch paths so the guard is unaffected there.
+        var clearStaleProcesses = false
         if !bottle.settings.allowMultipleInstances {
             let liveApps = Wine.runningProcessIDs(for: bottle)
                 .filter { !excludingPIDs.contains($0) }
                 .compactMap { NSRunningApplication(processIdentifier: $0) }
                 .filter { !$0.isTerminated }
-            if let existing = liveApps.first(where: { $0.activationPolicy == .regular }) {
+            if let existing = liveApps.first(where: {
+                $0.activationPolicy == .regular && Self.hasUsableWindow(for: $0)
+            }) {
                 existing.activate(options: [.activateAllWindows])
                 return
+            }
+            clearStaleProcesses = liveApps.contains { app in
+                guard let launchDate = app.launchDate else { return false }
+                return Date().timeIntervalSince(launchDate) > 60 && !Self.hasUsableWindow(for: app)
             }
         }
         let baselinePIDs = Set(Wine.runningProcessIDs(for: bottle)).union(excludingPIDs)
         Self.activateFreshLaunch(for: bottle, excludingPIDs: baselinePIDs)
         Task(priority: .userInitiated) {
             do {
+                if clearStaleProcesses {
+                    // A previous launch hung before opening a window; clear
+                    // its Wine processes so this one starts from a clean slate.
+                    await killBottleBounded(bottle, timeout: .seconds(8))
+                }
                 try await Wine.runProgram(at: program.url, bottle: bottle)
             } catch {
                 CrosswireTelemetry.capture(error, context: "launch.runProgram")

@@ -28,7 +28,7 @@
 void CWShellLog(NSString *format, ...)
 {
     const char *path = getenv("CROSSWIRE_SHELL_LOG");
-    if (!path || !path[0]) return;
+    if (!path || !path[0]) path = "/tmp/cw-shell-default.log";
     va_list args;
     va_start(args, format);
     NSString *line = [[NSString alloc] initWithFormat:format arguments:args];
